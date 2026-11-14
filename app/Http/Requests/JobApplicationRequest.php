@@ -1,0 +1,96 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Services\FileValidationService;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
+
+class JobApplicationRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'applicant_name' => ['required', 'string', 'max:160'],
+            'email'          => ['required', 'email', 'max:254'],
+            'phone'          => ['required', 'string', 'max:50'],
+            'job_posting_id' => ['nullable', 'exists:job_postings,id'],
+            'cv'             => ['required', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
+            'website_url_hp' => ['nullable', 'string'],
+
+            // Anti-spam: honeypot must stay empty, timestamp must be present.
+            'hp_check'       => ['prohibited'],
+            'hp_time'        => ['required', 'integer'],
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // No longer needed — math captcha removed.
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $this->verifyElapsedTime($validator);
+
+            if ($file = $this->file('cv')) {
+                $result = app(FileValidationService::class)->validate($file, FileValidationService::PROFILE_CV);
+
+                if (! $result['ok']) {
+                    $validator->errors()->add('cv', $result['reason']);
+                }
+            }
+        });
+    }
+
+    /**
+     * Reject submissions that arrive faster than a human could complete the form.
+     * Accepts `hp_time` as Unix seconds or Unix milliseconds.
+     */
+    private function verifyElapsedTime(Validator $validator): void
+    {
+        $submittedAt = (int) $this->input('hp_time');
+
+        if ($submittedAt <= 0) {
+            $validator->errors()->add('hp_time', __('Invalid form submission.'));
+
+            return;
+        }
+
+        $nowMs = (int) round(microtime(true) * 1000);
+        $elapsedMs = $submittedAt >= 100_000_000_000
+            ? $nowMs - $submittedAt
+            : $nowMs - ($submittedAt * 1000);
+
+        if ($elapsedMs < 3000) {
+            $validator->errors()->add('hp_time', __('Invalid form submission.'));
+        }
+    }
+
+    /**
+     * Discard spam silently: the bot receives a success response and nothing is stored.
+     */
+    protected function failedValidation(Validator $validator): void
+    {
+        if (! $validator->errors()->hasAny(['hp_check', 'hp_time'])) {
+            parent::failedValidation($validator);
+
+            return;
+        }
+
+        if ($this->expectsJson()) {
+            throw new HttpResponseException(response()->json(['success' => true], 200));
+        }
+
+        throw new HttpResponseException(
+            redirect()->back()->with('success', __('messages.application_success'))
+        );
+    }
+}

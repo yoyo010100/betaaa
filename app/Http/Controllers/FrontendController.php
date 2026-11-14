@@ -1,0 +1,382 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\QuoteFormRequest;
+use App\Jobs\GenerateQuotationPdfJob;
+use App\Jobs\ProcessFileUploadJob;
+use App\Jobs\SendQuotationNotificationJob;
+use App\Models\Announcement;
+use App\Models\Country;
+use App\Models\JobPosting;
+use App\Models\Project;
+use App\Models\Product;
+use App\Models\QuoteRequest;
+use App\Models\Service;
+use App\Models\TechnicalDownload;
+use App\Models\Certificate;
+use App\Http\Requests\JobApplicationRequest;
+use App\Models\JobApplication;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+
+class FrontendController extends Controller
+{
+    public function home()
+    {
+        $services = Service::where('is_active', true)->with('attachments')->get();
+        $products = Product::where('is_active', true)->with('attachments')->get();
+        $announcements = Announcement::published()->with('attachments')->limit(3)->get();
+        $featuredProjects = Project::where('is_active', true)->latest()->take(4)->get();
+        $featuredProducts = Product::where('is_active', true)->latest()->take(4)->get();
+        $featuredServices = Service::where('is_active', true)->latest()->take(6)->get();
+        $activeQuotes = QuoteRequest::where('status', 'new')->count();
+        $completedProjects = Project::where('is_active', true)->count();
+        $firstService = Service::where('is_active', true)->with('attachments')->latest()->first();
+
+        return view('frontend.index', compact(
+            'services', 'products', 'announcements', 'featuredProjects',
+            'featuredProducts', 'featuredServices', 'activeQuotes',
+            'completedProjects', 'firstService'
+        ));
+    }
+
+    public function services()
+    {
+        $services = Service::where('is_active', true)->with('attachments')->get();
+
+        return view('frontend.services', compact('services'));
+    }
+
+    public function serviceDetail($slug)
+    {
+        $service = Service::where('slug', $slug)->firstOrFail();
+        return view('frontend.service-detail', compact('service'));
+    }
+
+    public function products()
+    {
+        $products = Cache::remember('public.products.all.' . app()->getLocale(), 3600, fn() =>
+            Product::where('is_active', true)->with(['attachments', 'attributes', 'images'])->get()
+        );
+        return view('frontend.products', compact('products'));
+    }
+
+    public function productShow(Product $product)
+    {
+        if (!$product->is_active) {
+            abort(404);
+        }
+
+        $product->load(['attributes', 'images', 'attachments']);
+
+        $relatedProducts = Product::where('id', '!=', $product->id)
+            ->where('is_active', true)
+            ->with(['images', 'attachments', 'attributes'])
+            ->take(4)
+            ->get();
+
+        $viewName = view()->exists('products.show') ? 'products.show' : 'frontend.products.show';
+
+        return view($viewName, compact('product', 'relatedProducts'));
+    }
+
+    public function selectProductForQuote(Product $product)
+    {
+        session()->flash('selected_product_id', $product->id);
+
+        return redirect()->route('contact');
+    }
+
+    public function productDownloadFile(Product $product)
+    {
+        if (!$product->is_active) {
+            abort(404);
+        }
+
+        $filePath = $product->file_path;
+
+        if (!$filePath || !file_exists(public_path($filePath))) {
+            abort(404, 'The requested technical file could not be found.');
+        }
+
+        $fullPath = public_path($filePath);
+        $ext = pathinfo($fullPath, PATHINFO_EXTENSION);
+        $titleEn = is_array($product->title) ? ($product->title['en'] ?? $product->title['ar'] ?? 'product') : ($product->title ?? 'product');
+        $cleanFilename = Str::slug($titleEn) . '-datasheet.' . $ext;
+
+        return response()->download($fullPath, $cleanFilename, [
+            'Content-Disposition' => 'attachment; filename="' . $cleanFilename . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function announcements()
+    {
+        $announcements = Announcement::published()
+            ->with('attachments')
+            ->paginate(9)
+            ->withQueryString();
+
+        return view('frontend.announcements', [
+            'announcements' => $announcements,
+            'activeType' => null,
+            'types' => ['news', 'press_release', 'event'],
+        ]);
+    }
+
+    public function announcementShow(Announcement $announcement)
+    {
+        if (!$announcement->is_active || !$announcement->published_at || $announcement->published_at->isFuture()) {
+            abort(404);
+        }
+
+        $announcement->load('attachments');
+
+        return view('frontend.announcement-detail', compact('announcement'));
+    }
+
+    public function insightDetail(Announcement $announcement)
+    {
+        return $this->announcementShow($announcement);
+    }
+
+    public function careers()
+    {
+        $jobs = Cache::remember('public.jobs.' . app()->getLocale(), 3600, fn() =>
+            JobPosting::where('is_active', true)->with('country')->get()
+        );
+        $countries = Country::where('is_active', true)->get();
+        return view('frontend.careers', compact('jobs', 'countries'));
+    }
+
+    public function projects()
+    {
+        $projects = Project::where('is_active', true)->latest()->get();
+        return view('frontend.projects', compact('projects'));
+    }
+
+    public function contact()
+    {
+        $services = Cache::remember('public.services.all.' . app()->getLocale(), 3600, fn() =>
+            Service::where('is_active', true)->with('attachments')->get()
+        );
+        $products = Cache::remember('public_products_' . app()->getLocale(), 3600, fn() =>
+            Product::where('is_active', true)->with('attachments')->get()
+        );
+        $countries = Country::where('is_active', true)->get();
+        $jobs = JobPosting::where('is_active', true)->with('country')->get();
+
+        $selectedProductId = session('selected_product_id');
+        if (!$selectedProductId && request('product')) {
+            $productParam = request('product');
+            $matchedProduct = Product::where('slug', $productParam)
+                ->orWhere('public_id', $productParam)
+                ->orWhere('id', is_numeric($productParam) ? (int)$productParam : 0)
+                ->first();
+            if ($matchedProduct) {
+                $selectedProductId = $matchedProduct->id;
+            }
+        }
+        $preselectedProductId = $selectedProductId;
+
+        return view('frontend.contact', compact('services', 'products', 'countries', 'jobs', 'preselectedProductId', 'selectedProductId'));
+    }
+
+    public function about()
+    {
+        $technicalDownloads = TechnicalDownload::where('is_active', true)
+            ->orderBy('sort_order', 'asc')
+            ->orderByDesc('issuance_date')
+            ->get();
+
+        return view('frontend.about', compact('technicalDownloads'));
+    }
+
+    public function certificates()
+    {
+        $certificates = Certificate::where('is_active', true)
+            ->orderByDesc('issuance_date')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('frontend.certificates.index', compact('certificates'));
+    }
+
+    public function certificateDownload(Certificate $certificate)
+    {
+        if (!$certificate->file_path || !\Illuminate\Support\Facades\Storage::disk('private')->exists($certificate->file_path)) {
+            abort(404, 'The requested certificate file could not be found.');
+        }
+
+        $fileName = basename($certificate->file_path);
+
+        return \Illuminate\Support\Facades\Storage::disk('private')->download(
+            $certificate->file_path,
+            $fileName,
+            [
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
+    }
+
+    public function technicalDownload(TechnicalDownload $download)
+    {
+        $filePath = $download->file_path;
+
+        if (!$filePath) {
+            abort(404, 'The requested file could not be found.');
+        }
+
+        $disk = null;
+        if (\Illuminate\Support\Facades\Storage::disk('private')->exists($filePath)) {
+            $disk = 'private';
+        } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($filePath)) {
+            $disk = 'public';
+        }
+
+        if (!$disk) {
+            abort(404, 'The requested file could not be found in secure storage.');
+        }
+
+        $fullPath = \Illuminate\Support\Facades\Storage::disk($disk)->path($filePath);
+        $fileName = basename($filePath);
+        $mime = \Illuminate\Support\Facades\File::mimeType($fullPath);
+
+        return response()->download($fullPath, $fileName, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function submitQuote(QuoteFormRequest $request)
+    {
+        $qr = QuoteRequest::create([
+            'public_id' => (string) Str::ulid(),
+            'client_name' => $request->client_name,
+            'company_name' => $request->company_name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'country_id' => $request->country_id,
+            'service_id' => $request->service_id,
+            'product_id' => $request->product_id,
+            'client_message' => $request->client_message,
+            'status' => 'new',
+            'submitted_at' => now(),
+        ]);
+
+        // Offload all heavy work to Redis-backed queues so the HTTP request
+        // returns immediately (<100ms) instead of blocking on I/O or CPU.
+        if ($request->hasFile('drawing')) {
+            $originalName = $request->file('drawing')->getClientOriginalName();
+            $tempPath = $request->file('drawing')->store('temp', 'private');
+
+            ProcessFileUploadJob::dispatch(
+                storage_path('app/private/' . $tempPath),
+                $originalName,
+                QuoteRequest::class,
+                $qr->id
+            )->onConnection('redis')->onQueue('media');
+        }
+
+        SendQuotationNotificationJob::dispatch($qr)
+            ->onConnection('redis')->onQueue('notifications');
+
+        GenerateQuotationPdfJob::dispatch($qr)
+            ->onConnection('redis')->onQueue('media');
+
+        WriteAuditLogJob::dispatch('quote.submitted', [
+            'public_id' => $qr->public_id,
+            'email'     => $qr->email,
+            'ip'        => $request->ip(),
+        ])->onConnection('redis')->onQueue('audit');
+
+        return redirect()->back()->with('success', __('messages.quote_success'));
+    }
+
+    public function submitApplication(JobApplicationRequest $request)
+    {
+        $application = JobApplication::create([
+            'public_id'      => (string) Str::ulid(),
+            'job_posting_id' => $request->job_posting_id,
+            'applicant_name' => $request->applicant_name,
+            'email'          => $request->email,
+            'phone'          => $request->phone,
+            'status'         => 'new',
+            'submitted_at'   => now(),
+        ]);
+
+        if ($request->hasFile('cv')) {
+            $file = $request->file('cv');
+
+            // 2. Extension allow-list (mirrors JobApplicationRequest + FileValidationService):
+            //    executable/script types can never be stored.
+            $safeExt = strtolower($file->getClientOriginalExtension());
+            if (!in_array($safeExt, ['pdf', 'doc', 'docx'], true)) {
+                $safeExt = 'pdf';
+            }
+
+            // 1. Clean, ASCII-safe download filename: CV_<applicant-name-slug>_<timestamp>.ext
+            //    Converts Arabic/special characters to an ASCII slug so downloaded CVs never
+            //    carry corrupted names like "______-_________.pdf".
+            $nameSlug = Str::slug($request->applicant_name ?: 'candidate');
+            $nameSlug = $nameSlug ?: 'candidate';
+            $fileName = 'CV_' . $nameSlug . '_' . time() . '.' . $safeExt;
+
+            // 4. Read metadata from the temp upload before putFileAs() moves it.
+            $mimeType = app(\App\Services\FileValidationService::class)->detectMime($file->getRealPath());
+            $sizeBytes = $file->getSize();
+
+            $destinationPath = 'cvs/' . date('Y/m') . '/' . (string) Str::ulid() . '.' . $safeExt;
+            \Illuminate\Support\Facades\Storage::disk('private')->putFileAs(
+                dirname($destinationPath),
+                $file,
+                basename($destinationPath)
+            );
+
+            // 5. Create Attachment record with scan_status = 'passed' (content validated
+            //    by magic-byte checks in JobApplicationRequest) so admins can review/download it.
+            \App\Models\Attachment::create([
+                'public_id'       => (string) Str::ulid(),
+                'attachable_type' => JobApplication::class,
+                'attachable_id'   => $application->id,
+                'file_path'       => $destinationPath,
+                'file_name'       => $fileName,
+                'mime_type'       => $mimeType,
+                'size_bytes'      => $sizeBytes,
+                'scan_status'     => 'passed',
+                'uploaded_at'     => now(),
+            ]);
+        }
+
+        try {
+            \App\Jobs\WriteAuditLogJob::dispatch('application.submitted', [
+                'public_id'      => $application->public_id,
+                'job_posting_id' => $application->job_posting_id,
+                'email'          => $request->email,
+                'ip'             => $request->ip(),
+            ])->onQueue('audit');
+        } catch (\Throwable $e) {
+            \Log::info('Audit log skipped: ' . $e->getMessage());
+        }
+
+        return redirect()->back()->with('success', __('messages.application_success'));
+    }
+
+    public function switchLocale(Request $request, string $locale)
+    {
+        if (!in_array($locale, \App\Http\Middleware\SetLocale::SUPPORTED, true)) {
+            abort(400);
+        }
+
+        // One global switch: session for this visit + 1-year cookie so it is
+        // remembered for every page on the next visit (read by SetLocale).
+        $request->session()->put('locale', $locale);
+        \Illuminate\Support\Facades\App::setLocale($locale);
+
+        return redirect()->back()->cookie(cookie()->forever('locale', $locale));
+    }
+}
