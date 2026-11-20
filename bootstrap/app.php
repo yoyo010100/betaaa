@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Middleware aliases
         $middleware->alias([
             'admin'      => \App\Http\Middleware\AdminMiddleware::class,
+            'manager'    => \App\Http\Middleware\EnsureManager::class,
             'antibot'    => \App\Http\Middleware\AntiBotHoneypot::class,
             'set.locale' => \App\Http\Middleware\SetLocale::class,
         ]);

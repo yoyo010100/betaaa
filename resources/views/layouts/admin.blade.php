@@ -66,11 +66,13 @@ button,select,input,textarea{font:inherit;outline:none}
 .btn-danger:hover{background:var(--red);color:var(--white)}
 .btn-sm{padding:7px 14px;font-size:11px}
 .badge{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-.badge-new{background:#ebf8ff;color:#2b6cb0}
+.badge-new{background:#eff6ff;color:#2b6cb0}
 .badge-reviewing{background:#faf5ff;color:#6b46c1}
-.badge-quoted{background:#fefcbf;color:#744210}
+.badge-quoted{background:#fff7e0;color:#8a6a00}
 .badge-accepted{background:#f0fff4;color:#276749}
 .badge-rejected{background:#fff5f5;color:var(--red)}
+.badge-won{background:#f0fff4;color:#16a34a}
+.badge-lost{background:#fff5f5;color:#c53030}
 .badge-hired{background:#f0fff4;color:#276749}
 .badge-interviewing{background:#e6fffa;color:#234e52}
 .badge-quarantined{background:#fff5f5;color:var(--red)}
@@ -164,41 +166,53 @@ html[dir="rtl"] .badge { transform: scaleX(-1); transform-origin: left; }
     </div>
     @endauth
     <nav class="nav-menu">
-        <span class="nav-section">Analytics</span>
-        <a href="{{ route('admin.dashboard') }}" @class(['nav-item', 'active' => request()->routeIs('admin.dashboard')])>
-            <span class="icon">📊</span> Executive Dashboard
-        </a>
+        @if(Auth::check() && Auth::user()->isSuperAdmin())
+            <span class="nav-section">Analytics</span>
+            <a href="{{ route('admin.dashboard') }}" @class(['nav-item', 'active' => request()->routeIs('admin.dashboard')])>
+                <span class="icon">📊</span> Executive Dashboard
+            </a>
+        @endif
 
         <span class="nav-section">Operations</span>
         <a href="{{ route('admin.leads.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.leads*')])>
             <span class="icon">📩</span> Quotation Leads
         </a>
-        <a href="{{ route('admin.catalog.products') }}" @class(['nav-item', 'active' => request()->routeIs('admin.catalog.products*')])>
-            <span class="icon">📦</span> Products
-        </a>
-        <a href="{{ route('admin.catalog.services') }}" @class(['nav-item', 'active' => request()->routeIs('admin.catalog.services*')])>
-            <span class="icon">⚙️</span> Services
-        </a>
 
-        <span class="nav-section">Content & HR</span>
-        <a href="{{ route('admin.announcements.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.announcements*')])>
-            <span class="icon">📢</span> Announcements
-        </a>
+        @if(Auth::check() && Auth::user()->isSuperAdmin())
+            <a href="{{ route('admin.team.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.team*')])>
+                <span class="icon">👥</span> Team Management
+            </a>
+            <a href="{{ route('admin.catalog.products') }}" @class(['nav-item', 'active' => request()->routeIs('admin.catalog.products*')])>
+                <span class="icon">📦</span> Products
+            </a>
+            <a href="{{ route('admin.catalog.services') }}" @class(['nav-item', 'active' => request()->routeIs('admin.catalog.services*')])>
+                <span class="icon">⚙️</span> Services
+            </a>
 
-        <span class="nav-section">Resources</span>
-        <a href="{{ route('admin.technical-downloads.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.technical-downloads*')])>
-            <span class="icon">⬇️</span> Technical Downloads
-        </a>
-        <a href="{{ route('admin.certificates.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.certificates*')])>
-            <span class="icon">🏆</span> Certificates
-        </a>
+            <span class="nav-section">Content & HR</span>
+            <a href="{{ route('admin.announcements.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.announcements*')])>
+                <span class="icon">📢</span> Announcements
+            </a>
 
-        <a href="{{ route('admin.careers.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.careers.index') || request()->routeIs('admin.careers.show')])>
-            <span class="icon">👥</span> Job Applications
-        </a>
-        <a href="{{ route('admin.careers.postings') }}" @class(['nav-item', 'active' => request()->routeIs('admin.careers.postings*')])>
-            <span class="icon">💼</span> Job Postings
-        </a>
+            <a href="{{ route('admin.trusted-clients.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.trusted-clients*')])>
+                <span class="icon">🤝</span> Trusted Clients
+            </a>
+
+            <span class="nav-section">Resources</span>
+            <a href="{{ route('admin.technical-downloads.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.technical-downloads*')])>
+                <span class="icon">⬇️</span> Technical Downloads
+            </a>
+            <a href="{{ route('admin.certificates.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.certificates*')])>
+                <span class="icon">🏆</span> Certificates
+            </a>
+
+            <a href="{{ route('admin.careers.index') }}" @class(['nav-item', 'active' => request()->routeIs('admin.careers.index') || request()->routeIs('admin.careers.show')])>
+                <span class="icon">👥</span> Job Applications
+            </a>
+            <a href="{{ route('admin.careers.postings') }}" @class(['nav-item', 'active' => request()->routeIs('admin.careers.postings*')])>
+                <span class="icon">💼</span> Job Postings
+            </a>
+        @endif
     </nav>
     <div class="sidebar-footer">
         <form action="{{ route('admin.logout') }}" method="POST">

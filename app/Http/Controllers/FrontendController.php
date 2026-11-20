@@ -34,11 +34,15 @@ class FrontendController extends Controller
         $activeQuotes = QuoteRequest::where('status', 'new')->count();
         $completedProjects = Project::where('is_active', true)->count();
         $firstService = Service::where('is_active', true)->with('attachments')->latest()->first();
+        $trustedClients = TrustedClient::where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
 
         return view('frontend.index', compact(
             'services', 'products', 'announcements', 'featuredProjects',
             'featuredProducts', 'featuredServices', 'activeQuotes',
-            'completedProjects', 'firstService'
+            'completedProjects', 'firstService', 'trustedClients'
         ));
     }
 

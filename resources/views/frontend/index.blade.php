@@ -457,18 +457,35 @@ html[dir="rtl"] .footer-bottom{flex-direction:row}
     </div>
 </section>
 
-<!-- MOVING STATEMENT -->
-<div class="marquee" aria-hidden="true">
-    <div class="marquee-track">
-        <span>
-            {{ __('app.nav.services') }} <b>✦</b>
-            {{ $firstService?->getTranslated('title') ? ucfirst($firstService?->getTranslated('title')) : __('home.word_manufacture') }} <b>✦</b>
-            {{ __('home.word_install') }} <b>✦</b>
-            {{ $firstService?->getTranslated('title') ? ucfirst($firstService?->getTranslated('title')) : __('home.word_manufacture') }} <b>✦</b>
-        </span>
-        <span>{{ __('home.word_engineer') }} <b>✦</b> {{ __('home.word_manufacture') }} <b>✦</b> {{ __('home.word_install') }} <b>✦</b> {{ __('home.word_engineer') }} <b>✦</b> {{ __('home.word_manufacture') }} <b>✦</b> {{ __('home.word_install') }} <b>✦</b></span>
+<!-- TRUSTED BY INDUSTRY LEADERS -->
+@if($trustedClients->isNotEmpty())
+<div class="trusted-marquee">
+    <div class="marquee-wrapper" style="direction:ltr;overflow:hidden;">
+        <div class="marquee-track" style="display:flex;flex-wrap:nowrap;align-items:center;gap:56px;width:max-content;">
+            @foreach($trustedClients as $client)
+                @php $logoPath = $client->logo_path ? asset('uploads/clients/' . $client->logo_path) : '#'; @endphp
+                <div class="marquee-logo" style="flex-shrink:0;">
+                    @if($client->logo_path && file_exists(public_path('uploads/clients/' . $client->logo_path)))
+                        <img src="{{ $logoPath }}" alt="{{ $client->name }}" height="44" width="auto" style="object-fit:contain;filter:grayscale(100%);opacity:0.7;transition:transform .4s ease,filter .4s ease;" onmouseover="this.style.transform='scale(1.1)';this.style.filter='grayscale(0%);opacity:1'" onmouseout="this.style.transform='scale(1)';this.style.filter='grayscale(100%);opacity:0.7'" />
+                    @else
+                        <div class="marquee-placeholder" style="width:44px;height:44px;background:#e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#64748b;text-transform:uppercase;">{{ strtoupper(substr($client->name,0,3)) }}</div>
+                    @endif>
+                </div>
+            @endforeach
+            @foreach($trustedClients as $client)
+                @php $logoPath = $client->logo_path ? asset('uploads/clients/' . $client->logo_path) : '#'; @endphp
+                <div class="marquee-logo" style="flex-shrink:0;">
+                    @if($client->logo_path && file_exists(public_path('uploads/clients/' . $client->logo_path)))
+                        <img src="{{ $logoPath }}" alt="{{ $client->name }}" height="44" width="auto" style="object-fit:contain;filter:grayscale(100%);opacity:0.7;transition:transform .4s ease,filter .4s ease;" onmouseover="this.style.transform='scale(1.1)';this.style.filter='grayscale(0%);opacity:1'" onmouseout="this.style.transform='scale(1)';this.style.filter='grayscale(100%);opacity:0.7'" />
+                    @else
+                        <div class="marquee-placeholder" style="width:44px;height:44px;background:#e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#64748b;text-transform:uppercase;">{{ strtoupper(substr($client->name,0,3)) }}</div>
+                    @endif>
+                </div>
+            @endforeach>
+        </div>
     </div>
 </div>
+@endif
 
 <!-- FEATURED GRIDS (News) -->
 <section class="featured-grids reveal">

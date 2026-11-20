@@ -14,7 +14,7 @@
         <form action="{{ route('admin.leads.status.update', $lead->public_id) }}" method="POST" style="display:flex;gap:8px">
             @csrf @method('PATCH')
             <select name="status" style="padding:8px 12px;border:1px solid var(--line);border-radius:6px;font-size:13px">
-                @foreach(['new','reviewing','quoted','accepted','rejected'] as $s)
+                @foreach($statusOptions as $s)
                 <option value="{{ $s }}" {{ $lead->status === $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
                 @endforeach
             </select>
@@ -34,6 +34,15 @@
                 <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Product</div><strong>{{ $lead->product?->getTitle() ?? '—' }}</strong></div>
                 <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Country</div><strong>{{ $lead->country?->name ?? '—' }}</strong></div>
                 <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Submitted</div><strong>{{ $lead->submitted_at?->format('M d, Y H:i') }}</strong></div>
+                <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Source</div><strong>{{ ucfirst(str_replace('_', ' ', $lead->source ?? 'website')) }}</strong></div>
+                @if(Auth::user()->isSuperAdmin())
+                    @php
+                        $owner = $lead->assigned_admin_id ? ($salesReps[$lead->assigned_admin_id] ?? null) : null;
+                        $quotedBy = $lead->quotation?->adminUser?->name;
+                    @endphp
+                    <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Assigned To</div><strong>{{ $owner ?? 'Unassigned' }}</strong></div>
+                    <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Quoted By</div><strong>{{ $quotedBy ?? '—' }}</strong></div>
+                @endif
             </div>
             @if($lead->client_message)
             <div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:6px;border-left:3px solid var(--sun);font-size:14px;line-height:1.7;color:var(--charcoal)">
@@ -66,7 +75,16 @@
     {{-- RIGHT: Quotation Engine --}}
     <div>
         <div class="form-card" style="position:sticky;top:96px">
-            <h3>{{ $lead->quotation ? 'Update Quotation' : 'Create Quotation' }}</h3>
+            <h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+                <span>{{ $lead->quotation ? 'Update Quotation' : 'Create Quotation' }}</span>
+                @if($lead->quotation)
+                    <a href="{{ route('admin.quotations.pdf', $lead->quotation->public_id) }}"
+                       class="btn btn-primary btn-sm"
+                       title="Download client-ready quotation PDF">
+                        ⬇ Download Client PDF
+                    </a>
+                @endif
+            </h3>
             <form action="{{ route('admin.leads.quotation.store', $lead->public_id) }}" method="POST" id="quotationForm">
                 @csrf
                 <div class="form-group" style="margin-bottom:14px">

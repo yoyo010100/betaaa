@@ -4,197 +4,332 @@
 
 @section('content')
 
-{{-- KPI METRICS --}}
+{{-- FILTER BAR --}}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:24px;flex-wrap:wrap">
+    <div>
+        <h1 style="font-size:22px;font-weight:800">Executive Dashboard</h1>
+        <p style="font-size:13px;color:var(--muted);margin-top:4px">
+            {{ $periodLabel }} &bull; {{ $startDate->format('d M Y') }} – {{ $endDate->format('d M Y') }}
+        </p>
+    </div>
+
+    <form method="GET" action="{{ route('admin.dashboard') }}" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select name="year" style="padding:9px 14px;border:1px solid var(--line);border-radius:6px;font-size:13px">
+            @foreach($availableYears as $availableYear)
+                <option value="{{ $availableYear }}" {{ (int) $year === (int) $availableYear ? 'selected' : '' }}>
+                    {{ $availableYear }}
+                </option>
+            @endforeach
+        </select>
+
+        <select name="period" style="padding:9px 14px;border:1px solid var(--line);border-radius:6px;font-size:13px">
+            @foreach($periods as $value => $label)
+                <option value="{{ $value }}" {{ $period === $value ? 'selected' : '' }}>{{ $label }}</option>
+            @endforeach
+        </select>
+
+        <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+    </form>
+</div>
+
+{{-- QUOTE & DEAL FUNNEL KPIS --}}
 <div class="metric-grid">
     <div class="metric-card">
-        <h4>Pipeline Value</h4>
-        <div class="value">{{ number_format($totalPipelineValue / 1000, 0) }}K</div>
-        <div class="sub" style="color:var(--green)">EGP + SAR Combined</div>
+        <h4>Total Quotes</h4>
+        <div class="value">{{ number_format($totalQuotes) }}</div>
+        <div class="sub" style="color:var(--muted)">All leads in selected period</div>
     </div>
     <div class="metric-card">
-        <h4>Active RFQs</h4>
-        <div class="value">{{ $activeRfqs }}</div>
-        <div class="sub" style="color:var(--muted)">Awaiting quotation</div>
+        <h4>Deals Won</h4>
+        <div class="value" style="color:var(--green)">{{ number_format($dealsWon) }}</div>
+        <div class="sub" style="color:var(--muted)">Status: won</div>
     </div>
     <div class="metric-card">
-        <h4>New Leads</h4>
-        <div class="value" style="color:var(--ocean)">{{ $newLeads }}</div>
-        <div class="sub" style="color:var(--muted)">Need first response</div>
+        <h4>Deals Lost</h4>
+        <div class="value" style="color:var(--red)">{{ number_format($dealsLost) }}</div>
+        <div class="sub" style="color:var(--muted)">Status: lost</div>
     </div>
     <div class="metric-card">
-        <h4>Open Positions</h4>
-        <div class="value">{{ $openJobs }}</div>
-        <div class="sub" style="color:var(--muted)">{{ $newApplicants }} new applicants</div>
+        <h4>Open / Quoted</h4>
+        <div class="value" style="color:var(--ocean)">{{ number_format($openQuoted) }}</div>
+        <div class="sub" style="color:var(--muted)">Status: new or quoted</div>
+    </div>
+    <div class="metric-card">
+        <h4>Win Rate</h4>
+        <div class="value">{{ number_format($winRate, 1) }}%</div>
+        <div class="sub" style="color:var(--muted)">Won ÷ total quotes</div>
+    </div>
+    <div class="metric-card">
+        <h4>Website Leads</h4>
+        <div class="value">{{ number_format($sourceCounts['website']) }}</div>
+        <div class="sub" style="color:var(--muted)">Source: website</div>
+    </div>
+    <div class="metric-card">
+        <h4>Event / Manual</h4>
+        <div class="value" style="color:var(--sun)">{{ number_format($sourceCounts['manual']) }}</div>
+        <div class="sub" style="color:var(--muted)">Event, phone &amp; walk-in</div>
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px">
-
-    {{-- REVENUE CHART --}}
-    <div class="chart-card">
-        <h4>Monthly Revenue vs Profit (Last 6 Months)</h4>
-        <div id="revenueChart"></div>
+{{-- SEPARATED CURRENCY FINANCIALS --}}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+    <div class="chart-card" style="border-top:4px solid #003087;margin-bottom:0">
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+            <span>EGP Financials</span>
+            <span class="badge" style="background:#e8edf7;color:#003087">EGP</span>
+        </h4>
+        <div style="display:grid;gap:14px">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+                <span style="font-size:12px;color:var(--muted)">Realized Revenue</span>
+                <strong style="font-size:16px">{{ number_format($financials['EGP']['realized'], 2) }} EGP</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+                <span style="font-size:12px;color:var(--muted)">Gross Profit</span>
+                <strong style="font-size:16px;color:var(--green)">{{ number_format($financials['EGP']['profit'], 2) }} EGP</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px">
+                <span style="font-size:12px;color:var(--muted)">Open Pipeline Value</span>
+                <strong style="font-size:16px;color:var(--ocean)">{{ number_format($financials['EGP']['pipeline'], 2) }} EGP</strong>
+            </div>
+        </div>
     </div>
 
-    {{-- REGIONAL DEMAND --}}
-    <div class="chart-card">
-        <h4>Regional Demand Split</h4>
-        <div id="regionalChart"></div>
-        <div style="display:flex;gap:20px;justify-content:center;margin-top:16px;font-size:12px">
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#003087;border-radius:50%;display:inline-block"></span>🇪🇬 Egypt ({{ $egyptCount }})</span>
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#F2A900;border-radius:50%;display:inline-block"></span>🇸🇦 KSA ({{ $ksaCount }})</span>
+    <div class="chart-card" style="border-top:4px solid #F2A900;margin-bottom:0">
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+            <span>SAR Financials</span>
+            <span class="badge" style="background:#fff7e0;color:#8a6a00">SAR</span>
+        </h4>
+        <div style="display:grid;gap:14px">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+                <span style="font-size:12px;color:var(--muted)">Realized Revenue</span>
+                <strong style="font-size:16px">{{ number_format($financials['SAR']['realized'], 2) }} SAR</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+                <span style="font-size:12px;color:var(--muted)">Gross Profit</span>
+                <strong style="font-size:16px;color:var(--green)">{{ number_format($financials['SAR']['profit'], 2) }} SAR</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:12px">
+                <span style="font-size:12px;color:var(--muted)">Open Pipeline Value</span>
+                <strong style="font-size:16px;color:var(--sun)">{{ number_format($financials['SAR']['pipeline'], 2) }} SAR</strong>
+            </div>
         </div>
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:28px">
+<div style="font-size:11px;color:var(--muted);margin:-12px 0 24px">
+    EGP and SAR are reported independently. No combined cross-currency total is calculated.
+</div>
 
-    {{-- LEAD FUNNEL --}}
-    <div class="chart-card">
-        <h4>Sales Lead Funnel</h4>
-        <div id="funnelChart"></div>
+{{-- MONTHLY CURRENCY CHARTS --}}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+    <div class="chart-card" style="margin-bottom:0">
+        <h4>EGP Monthly Revenue &amp; Gross Profit</h4>
+        <div style="height:300px;position:relative"><canvas id="egpChart"></canvas></div>
     </div>
-
-    {{-- HR FUNNEL --}}
-    <div class="chart-card">
-        <h4>HR Hiring Pipeline</h4>
-        @foreach(['new'=>'New','reviewed'=>'Reviewed','interviewing'=>'Interview','offered'=>'Offered','hired'=>'Hired'] as $k=>$label)
-        <div style="margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
-                <span>{{ $label }}</span><span style="font-weight:700">{{ $hrFunnel[$k] ?? 0 }}</span>
-            </div>
-            <div style="background:#eee;border-radius:2px;height:6px;overflow:hidden">
-                <div style="height:100%;background:var(--ocean);width:{{ $hrFunnel->sum() > 0 ? (($hrFunnel[$k] ?? 0) / $hrFunnel->sum() * 100) : 0 }}%;border-radius:2px;transition:.5s"></div>
-            </div>
-        </div>
-        @endforeach
-
-        <h4 style="margin-top:22px">Applicants by Position</h4>
-        <div id="hrPositionChart"></div>
+    <div class="chart-card" style="margin-bottom:0">
+        <h4>SAR Monthly Revenue &amp; Gross Profit</h4>
+        <div style="height:300px;position:relative"><canvas id="sarChart"></canvas></div>
     </div>
 </div>
 
-{{-- TOP REQUESTED ITEMS --}}
-<div class="chart-card">
-    <h4>Top Requested Items (Products &amp; Services)</h4>
-    <div id="topItemsChart"></div>
+{{-- FUNNEL + SALES REP CHART --}}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+    <div class="chart-card" style="margin-bottom:0">
+        <h4>Quote Conversion Funnel</h4>
+        <div style="height:300px;position:relative"><canvas id="funnelChart"></canvas></div>
+    </div>
+    <div class="chart-card" style="margin-bottom:0">
+        <h4>Sales Rep Performance Comparison</h4>
+        <div style="height:300px;position:relative"><canvas id="repsChart"></canvas></div>
+    </div>
 </div>
 
-{{-- RECENT LEADS --}}
+{{-- SALES TEAM LEADERBOARD --}}
 <div class="table-wrap">
     <div class="table-toolbar">
-        <h3 style="font-size:15px;font-weight:700;flex:1">Recent Leads</h3>
-        <a href="{{ route('admin.leads.index') }}" class="btn btn-outline btn-sm">View All →</a>
+        <h3 style="font-size:15px;font-weight:700;flex:1">Sales Team Performance Leaderboard</h3>
+        <span style="font-size:11px;color:var(--muted)">{{ $periodLabel }}</span>
     </div>
     <table>
         <thead>
             <tr>
-                <th>Client</th>
-                <th>Company</th>
-                <th>Country</th>
-                <th>Service</th>
-                <th>Status</th>
-                <th>Received</th>
-                <th></th>
+                <th>Sales Rep</th>
+                <th>Quotes</th>
+                <th>Won</th>
+                <th>Win Rate</th>
+                <th>EGP Revenue</th>
+                <th>SAR Revenue</th>
             </tr>
         </thead>
         <tbody>
-            @forelse($recentLeads as $lead)
-            <tr>
-                <td style="font-weight:700">{{ $lead->client_name }}</td>
-                <td style="color:var(--muted)">{{ $lead->company_name ?: '—' }}</td>
-                <td>{{ $lead->country?->name ?? '—' }}</td>
-                <td>{{ $lead->service?->getTitle() ?? '—' }}</td>
-                <td><span class="badge badge-{{ $lead->status }}">{{ $lead->status }}</span></td>
-                <td style="color:var(--muted);font-size:12px">{{ $lead->submitted_at?->diffForHumans() }}</td>
-                <td><a href="{{ route('admin.leads.show', $lead->public_id) }}" class="btn btn-outline btn-sm">Open</a></td>
-            </tr>
+            @forelse($salesRepStats as $rep)
+                <tr>
+                    <td style="font-weight:700">{{ $rep['name'] }}</td>
+                    <td>{{ number_format($rep['total_quotes']) }}</td>
+                    <td style="color:var(--green);font-weight:700">{{ number_format($rep['won']) }}</td>
+                    <td>{{ number_format($rep['win_rate'], 1) }}%</td>
+                    <td>{{ number_format($rep['egp_revenue'], 2) }} EGP</td>
+                    <td>{{ number_format($rep['sar_revenue'], 2) }} SAR</td>
+                </tr>
             @empty
-            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">No leads yet</td></tr>
+                <tr>
+                    <td colspan="6" style="text-align:center;color:var(--muted);padding:32px">
+                        No sales reps found.
+                    </td>
+                </tr>
             @endforelse
         </tbody>
     </table>
 </div>
 
+{{-- PDF EXPORT --}}
+<div style="display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-bottom:32px">
+    <span style="font-size:11px;color:var(--muted)">Exports the dashboard with the rendered charts.</span>
+    <form method="POST" action="{{ route('admin.dashboard.export-pdf') }}" id="pdfExportForm">
+        @csrf
+        <input type="hidden" name="year" value="{{ $year }}">
+        <input type="hidden" name="period" value="{{ $period }}">
+        <input type="hidden" name="chart_egp" id="chart_egp">
+        <input type="hidden" name="chart_sar" id="chart_sar">
+        <input type="hidden" name="chart_funnel" id="chart_funnel">
+        <input type="hidden" name="chart_reps" id="chart_reps">
+        <button type="button" id="downloadPdfBtn" class="btn btn-sun">
+            ⬇ Download Executive Report (PDF)
+        </button>
+    </form>
+</div>
+
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    // Safe JSON encoding with fallback empty arrays
-    const months = @json($monthlyData?->pluck('month') ?? []);
-    const revenue = @json($monthlyData?->pluck('revenue') ?? []);
-    const cost = @json($monthlyData?->pluck('cost') ?? []);
-    const profit = @json($monthlyData?->pluck('profit') ?? []);
+document.addEventListener('DOMContentLoaded', () => {
+    Chart.defaults.font.family = 'DM Sans, sans-serif';
+    Chart.defaults.color = '#1a202c';
 
-    new ApexCharts(document.getElementById('revenueChart'), {
-        chart: { type: 'area', height: 240, toolbar: { show: false }, fontFamily: 'DM Sans, sans-serif' },
-        series: [
-            { name: 'Revenue', data: revenue.map(Number) },
-            { name: 'Cost', data: cost.map(Number) },
-            { name: 'Profit', data: profit.map(Number) }
-        ],
-        xaxis: { categories: months, labels: { style: { fontSize: '11px' } } },
-        colors: ['#003087', '#e53e3e', '#F2A900'],
-        fill: { type: 'gradient', gradient: { opacityFrom: 0.3, opacityTo: 0.0 } },
-        stroke: { width: 2 },
-        tooltip: { y: { formatter: v => 'EGP ' + Number(v).toLocaleString() } },
-        grid: { borderColor: '#f0f0f0' },
-        legend: { fontSize: '11px' }
-    }).render();
+    const months = @json($monthly['months']);
+    const egpRevenue = @json($monthly['EGP']['revenue']);
+    const egpProfit = @json($monthly['EGP']['profit']);
+    const sarRevenue = @json($monthly['SAR']['revenue']);
+    const sarProfit = @json($monthly['SAR']['profit']);
+    const funnel = @json($funnel);
+    const repStats = @json($salesRepStats);
 
-    // Regional Donut
-    const regionalSeries = @json([$egyptCount ?? 0, $ksaCount ?? 0]);
-    new ApexCharts(document.getElementById('regionalChart'), {
-        chart: { type: 'donut', height: 200, fontFamily: 'DM Sans, sans-serif' },
-        series: regionalSeries,
-        labels: ['Egypt', 'Saudi Arabia'],
-        colors: ['#003087', '#F2A900'],
-        dataLabels: { enabled: false },
-        legend: { show: false },
-        plotOptions: { pie: { donut: { size: '70%' } } }
-    }).render();
+    const currencyChart = (canvasId, code, revenue, profit, revenueColor, profitColor) => {
+        return new Chart(document.getElementById(canvasId), {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [
+                    {
+                        label: 'Revenue (' + code + ')',
+                        data: revenue,
+                        backgroundColor: revenueColor,
+                        borderRadius: 4,
+                        order: 2
+                    },
+                    {
+                        label: 'Gross Profit (' + code + ')',
+                        data: profit,
+                        type: 'line',
+                        borderColor: profitColor,
+                        backgroundColor: profitColor,
+                        borderWidth: 3,
+                        pointRadius: 3,
+                        tension: 0.35,
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => context.dataset.label + ': ' + code + ' ' + Number(context.raw).toLocaleString()
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => code + ' ' + Number(value).toLocaleString()
+                        }
+                    },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    };
 
-    // Lead Funnel Bar
-    @php($funnelDefaults = ['new' => 0, 'reviewing' => 0, 'quoted' => 0, 'accepted' => 0])
-    const funnelData = @json($funnelData ?? $funnelDefaults);
-    new ApexCharts(document.getElementById('funnelChart'), {
-        chart: { type: 'bar', height: 240, toolbar: { show: false }, fontFamily: 'DM Sans, sans-serif' },
-        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
-        series: [{ name: 'Leads', data: Object.values(funnelData) }],
-        xaxis: { categories: Object.keys(funnelData).map(s => s.charAt(0).toUpperCase() + s.slice(1)) },
-        colors: ['#003087'],
-        dataLabels: { style: { fontSize: '11px' } },
-        grid: { borderColor: '#f0f0f0' },
-        tooltip: { y: { formatter: v => v + ' leads' } }
-    }).render();
+    const egpChart = currencyChart('egpChart', 'EGP', egpRevenue, egpProfit, '#003087', '#F2A900');
+    const sarChart = currencyChart('sarChart', 'SAR', sarRevenue, sarProfit, '#F2A900', '#071321');
 
-    // Top Requested Items Bar
-    const topItemsData = @json($topItems ?? []);
-    new ApexCharts(document.getElementById('topItemsChart'), {
-        chart: { type: 'bar', height: 260, toolbar: { show: false }, fontFamily: 'DM Sans, sans-serif' },
-        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
-        series: [{ name: 'Requests', data: topItemsData.map(i => i.total ?? 0) }],
-        xaxis: { categories: topItemsData.map(i => i.label ?? '—') },
-        colors: ['#F2A900'],
-        dataLabels: { style: { fontSize: '11px' } },
-        grid: { borderColor: '#f0f0f0' },
-        tooltip: { y: { formatter: v => v + ' requests' } }
-    }).render();
+    const funnelChart = new Chart(document.getElementById('funnelChart'), {
+        type: 'bar',
+        data: {
+            labels: ['New', 'Quoted', 'Won', 'Lost'],
+            datasets: [{
+                label: 'Leads',
+                data: [funnel.new, funnel.quoted, funnel.won, funnel.lost],
+                backgroundColor: ['#003087', '#F2A900', '#16a34a', '#e53e3e'],
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, ticks: { precision: 0 } },
+                y: { grid: { display: false } }
+            }
+        }
+    });
 
-    // HR Applicants by Position
-    const hrPositionData = @json($hrByPosition ?? []);
-    new ApexCharts(document.getElementById('hrPositionChart'), {
-        chart: { type: 'bar', height: 200, toolbar: { show: false }, fontFamily: 'DM Sans, sans-serif' },
-        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
-        series: [{ name: 'Applicants', data: hrPositionData.map(i => i.total ?? 0) }],
-        xaxis: { categories: hrPositionData.map(i => i.label ?? '—') },
-        colors: ['#003087'],
-        dataLabels: { enabled: false },
-        grid: { borderColor: '#f0f0f0' },
-        tooltip: { y: { formatter: v => v + ' applicants' } }
-    }).render();
+    const repsChart = new Chart(document.getElementById('repsChart'), {
+        type: 'bar',
+        data: {
+            labels: repStats.map((rep) => rep.name),
+            datasets: [
+                {
+                    label: 'Total Quotes',
+                    data: repStats.map((rep) => rep.total_quotes),
+                    backgroundColor: '#003087',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Deals Won',
+                    data: repStats.map((rep) => rep.won),
+                    backgroundColor: '#16a34a',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    document.getElementById('downloadPdfBtn')?.addEventListener('click', () => {
+        document.getElementById('chart_egp').value = egpChart.canvas.toDataURL('image/png');
+        document.getElementById('chart_sar').value = sarChart.canvas.toDataURL('image/png');
+        document.getElementById('chart_funnel').value = funnelChart.canvas.toDataURL('image/png');
+        document.getElementById('chart_reps').value = repsChart.canvas.toDataURL('image/png');
+        document.getElementById('pdfExportForm').submit();
+    });
 });
 </script>
 @endpush
